@@ -1,39 +1,41 @@
 % 基于数据间方差的密度峰值聚类算法
 % Density peak clustering algorithm based on variance between data
+% DPCV下，无需归一化的数据：
+%         Pathbased, Jain, Aggregation
+% MDDPC下，无需归一化的数据：
+%         Pathbased, Jain, Aggregation
 clear
 clc
 
 t0=cputime;
 
-load D:\Xnewm\datasets\synthetic\forty.mat;
-% data=Eyes;
-% labels=data(:,3);
-% data(:,3)=[]; %清除labels列
-% data=Normal(data);
+% load D:\Xnewm\datasets\synthetic\forty.mat;
+data=xlsread('D:\Xm\UCI\Letter\Letter.xlsx');
+labels=xlsread('D:\Xm\UCI\Letter\label.xlsx');
+
+data = normalize(data, "range");
 
 e0=cputime-t0;
 t1=cputime;
 
 ND=size(data,1);
 N=ND*(ND-1)/2;
+
+percent = 0.002;
 K = 1;
 
-distM=zeros(ND);
-stdM=zeros(ND);
+% distM=zeros(ND);
 distK=zeros(ND,K);
 
 
-for i=1:ND-1
-    for j=i+1:ND
-        distM(i,j)=norm(data(i,:)-data(j,:));
-        distM(j,i)=distM(i,j);
-        %stdM(i,j)=std(data(i,:)-data(j,:));%DPCV
-        stdM(i,j)=norm(data(i,:)-data(j,:),1);%MDDPC:曼哈顿距离
-        stdM(j,i)=stdM(i,j);
-    end
-end
+% for i=1:ND-1
+%     for j=i+1:ND
+%         distM(i,j)=norm(data(i,:)-data(j,:));
+%         distM(j,i)=distM(i,j);
+%     end
+% end
+distM = pdist2(data, data);
 
-stdM=stdM/2+1;
 maxd=max(max(distM));
 
 for i=1:ND
@@ -44,20 +46,21 @@ end
 e1=cputime-t1;
 t2=cputime;
 
-percent = 0.1;
 position=round(N*percent/100);
 sda=sort((distM(triu(true(size(distM)),1)))');
 dc=sda(position);
+clear sda;
 
-%}
 for i=1:ND
     rho(i)=1;
 end
 
 for i=1:ND-1
     for j=i+1:ND
-        rho(i)=rho(i)+exp(-(distM(i,j)/(stdM(i,j)*dc))^2);
-        rho(j)=rho(j)+exp(-(distM(i,j)/(stdM(i,j)*dc))^2);
+        %stdM=std(data(i,:)-data(j,:))/2+1; % DPCV
+        stdM=norm(data(i,:)-data(j,:),1)/2+1; % MDDPC
+        rho(i)=rho(i)+exp(-(distM(i,j)/(stdM*dc))^2);
+        rho(j)=rho(j)+exp(-(distM(i,j)/(stdM*dc))^2);
     end
 end
 
@@ -84,9 +87,9 @@ title('Decision Graph','FontSize',15.0);
 xlabel('\rho');
 ylabel('\delta');
 
-t3=cputime;
-
 NCLUST=length(unique(labels));
+
+t3=cputime;
 
 for i=1:ND
     cl(i)=-1;
@@ -108,6 +111,7 @@ R=icl;
 for i=1:length(icl)
     R(i)=distM(icl(i),distK(icl(i),K));
 end
+
 %进行NCLUST轮扫描
 a=0.4;
 [~,ordicl]=sort(rho(icl),'descend');
@@ -136,7 +140,6 @@ for i=1:NCLUST
         queue=[queue index];
     end
 end
-
 
 for i=1:ND
     if(cl(ordrho(i))==-1)
@@ -175,7 +178,6 @@ plot(A(1:nn,1),A(1:nn,2),'o','MarkerSize',2,'MarkerFaceColor',cmap(ic,:),'Marker
 
 figure(2);
 
-
 for i=1:NCLUST
   nn=0;
   ic=int8((i*64.)/(NCLUST*1.));
@@ -189,13 +191,13 @@ for i=1:NCLUST
   hold on
   switch mod(i,14)+1
       case 1
-          plot(A(1:nn,1),A(1:nn,2),'c+');%,'MarkerFaceColor','c');
+          plot(A(1:nn,1),A(1:nn,2),'c<');%,'MarkerFaceColor','c');
       case 2
-          plot(A(1:nn,1),A(1:nn,2),'mo');%,'MarkerFaceColor','m');
+          plot(A(1:nn,1),A(1:nn,2),'ms');%,'MarkerFaceColor','m');
       case 3
-          plot(A(1:nn,1),A(1:nn,2),'y^');%,'MarkerFaceColor','y');
+          plot(A(1:nn,1),A(1:nn,2),'b^');%,'MarkerFaceColor','y');
       case 4
-          plot(A(1:nn,1),A(1:nn,2),'rx');%,'MarkerFaceColor','r');
+          plot(A(1:nn,1),A(1:nn,2),'g<');%,'MarkerFaceColor','r');
       case 5
           plot(A(1:nn,1),A(1:nn,2),'gs');%,'MarkerFaceColor','g');
       case 6
@@ -221,10 +223,10 @@ for i=1:NCLUST
   
   plot(data(icl,1),data(icl,2),'*','MarkerSize',15);
 end
+
 xlabel('属性1');
 ylabel('属性2');
 
-%}
 (ND*ND-ND)/2
 e1
 tt=e1+e2+e3;
